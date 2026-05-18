@@ -113,6 +113,12 @@ export function updateJobStatus(id: string, status: JobStatus, progress: number,
     .run(status, Math.max(0, Math.min(100, Math.round(progress))), error, new Date().toISOString(), id);
 }
 
+export function updateJobMetadata(id: string, metadata: unknown) {
+  getDb()
+    .prepare(`UPDATE jobs SET metadata = ?, updated_at = ? WHERE id = ?`)
+    .run(JSON.stringify(metadata), new Date().toISOString(), id);
+}
+
 export function updateJobProcessedPath(id: string, processedPath: string) {
   getDb().prepare(`UPDATE jobs SET processed_path = ?, updated_at = ? WHERE id = ?`).run(processedPath, new Date().toISOString(), id);
 }

@@ -12,6 +12,7 @@
   "dependencies": {
     "better-sqlite3": "^11.9.1",
     "groq-sdk": "^0.15.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.468.0",
     "next": "^15.1.4",
     "react": "^19.0.0",

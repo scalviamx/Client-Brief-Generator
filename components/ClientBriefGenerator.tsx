@@ -1,7 +1,22 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Clock3, Download, FileAudio, FileJson, FileText, Loader2, Play, RotateCcw, Upload } from "lucide-react";
+import {
+  Clock3,
+  Copy,
+  Download,
+  FileArchive,
+  FileAudio,
+  FileJson,
+  FileText,
+  Loader2,
+  Play,
+  RefreshCcw,
+  RotateCcw,
+  Search,
+  Upload,
+} from "lucide-react";
+import { defaultBriefPromptTemplate, defaultCleanupPromptTemplate, defaultJsonPromptTemplate } from "@/lib/ai/prompts";
 
 type JobStatus =
   | "queued"
@@ -15,15 +30,27 @@ type JobStatus =
   | "complete"
   | "failed";
 
-type ArtifactType = "raw_transcript" | "clean_transcript" | "brief_markdown" | "structured_json";
+type ArtifactType = "raw_transcript" | "merged_transcript" | "clean_transcript" | "brief_markdown" | "structured_json" | "export_zip";
+type OutputTab = "clean_transcript" | "brief_markdown" | "structured_json" | "export";
+type JobAction = "regenerate_json" | "regenerate_brief" | "regenerate_clean_transcript" | "reprocess_all";
+
+type PromptOverrides = {
+  cleanupPrompt?: string;
+  briefPrompt?: string;
+  jsonPrompt?: string;
+};
 
 type JobResponse = {
   id: string;
   status: JobStatus;
   progress: number;
   error: string | null;
-  metadata: Record<string, string>;
+  metadata: Record<string, string> & {
+    promptOverrides?: PromptOverrides;
+    processing?: Record<string, unknown>;
+  };
   originalFileName: string;
+  metrics?: Record<string, unknown>;
   chunks: Array<{
     index: number;
     startSeconds: number;
@@ -53,6 +80,13 @@ const statusLabels: Record<JobStatus, string> = {
   failed: "Error",
 };
 
+const actionStatus: Record<JobAction, JobStatus> = {
+  regenerate_json: "exporting",
+  regenerate_brief: "analyzing",
+  regenerate_clean_transcript: "cleaning",
+  reprocess_all: "queued",
+};
+
 const tabs = [
   { id: "clean_transcript", label: "Transcript", icon: FileText },
   { id: "brief_markdown", label: "Brief", icon: FileAudio },
@@ -68,13 +102,33 @@ export function ClientBriefGenerator() {
   const [internalParticipants, setInternalParticipants] = useState("Roberto, Reynaldo");
   const [job, setJob] = useState<JobResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [actionLoading, setActionLoading] = useState<JobAction | "">("");
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]["id"]>("clean_transcript");
+  const [notice, setNotice] = useState("");
+  const [activeTab, setActiveTab] = useState<OutputTab>("clean_transcript");
   const [artifactContent, setArtifactContent] = useState<Partial<Record<ArtifactType, string>>>({});
   const [recentJobs, setRecentJobs] = useState<JobResponse[]>([]);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [cleanupPrompt, setCleanupPrompt] = useState(defaultCleanupPromptTemplate);
+  const [briefPrompt, setBriefPrompt] = useState(defaultBriefPromptTemplate);
+  const [jsonPrompt, setJsonPrompt] = useState(defaultJsonPromptTemplate);
 
   const isRunning = Boolean(job && !["complete", "failed"].includes(job.status));
   const artifactMap = useMemo(() => new Map(job?.artifacts.map((artifact) => [artifact.type, artifact]) ?? []), [job]);
+  const currentOutput = activeTab === "export" ? "" : (artifactContent[activeTab] ?? "");
+  const whatsappMessage = useMemo(() => extractFollowUp(artifactContent.structured_json, "whatsapp"), [artifactContent.structured_json]);
+  const emailMessage = useMemo(() => extractFollowUp(artifactContent.structured_json, "email"), [artifactContent.structured_json]);
+  const filteredJobs = useMemo(() => {
+    const query = historyQuery.trim().toLowerCase();
+    if (!query) {
+      return recentJobs;
+    }
+    return recentJobs.filter((item) =>
+      [item.metadata.businessName, item.metadata.clientName, item.originalFileName, item.metadata.callType]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [historyQuery, recentJobs]);
 
   useEffect(() => {
     void loadRecentJobs().then(setRecentJobs);
@@ -93,6 +147,7 @@ export function ClientBriefGenerator() {
       if (nextJob) {
         setJob(nextJob);
         if (nextJob.status === "complete" || nextJob.status === "failed") {
+          setActionLoading("");
           void loadRecentJobs().then(setRecentJobs);
         }
       }
@@ -102,28 +157,31 @@ export function ClientBriefGenerator() {
   }, [job]);
 
   useEffect(() => {
-    if (job?.status !== "complete") {
+    if (!job || !["complete", "failed"].includes(job.status)) {
       return;
     }
 
     void Promise.all(
-      (["clean_transcript", "brief_markdown", "structured_json"] as ArtifactType[]).map(async (type) => {
-        const artifact = job.artifacts.find((item) => item.type === type);
-        if (!artifact || artifactContent[type]) {
-          return;
-        }
-        const response = await fetch(artifact.url);
-        if (response.ok) {
-          const content = await response.text();
-          setArtifactContent((current) => ({ ...current, [type]: content }));
-        }
-      }),
+      (["raw_transcript", "merged_transcript", "clean_transcript", "brief_markdown", "structured_json"] as ArtifactType[]).map(
+        async (type) => {
+          const artifact = job.artifacts.find((item) => item.type === type);
+          if (!artifact || artifactContent[type]) {
+            return;
+          }
+          const response = await fetch(artifact.url);
+          if (response.ok) {
+            const content = await response.text();
+            setArtifactContent((current) => ({ ...current, [type]: content }));
+          }
+        },
+      ),
     );
   }, [artifactContent, job]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setNotice("");
 
     if (!audioFile) {
       setError("Selecciona un audio antes de procesar.");
@@ -163,16 +221,72 @@ export function ClientBriefGenerator() {
     setJob(null);
     setArtifactContent({});
     setError("");
+    setNotice("");
   }
 
   async function selectRecentJob(jobId: string) {
     setError("");
+    setNotice("");
     setArtifactContent({});
     setActiveTab("clean_transcript");
     const nextJob = await fetchJob(jobId);
     if (nextJob) {
       setJob(nextJob);
+      setClientName(nextJob.metadata.clientName || "");
+      setBusinessName(nextJob.metadata.businessName || "");
+      setCallType(nextJob.metadata.callType || "Primera llamada");
+      setInternalParticipants(nextJob.metadata.internalParticipants || "Roberto, Reynaldo");
+      setCleanupPrompt(nextJob.metadata.promptOverrides?.cleanupPrompt || defaultCleanupPromptTemplate);
+      setBriefPrompt(nextJob.metadata.promptOverrides?.briefPrompt || defaultBriefPromptTemplate);
+      setJsonPrompt(nextJob.metadata.promptOverrides?.jsonPrompt || defaultJsonPromptTemplate);
     }
+  }
+
+  async function runJobAction(action: JobAction) {
+    if (!job) {
+      return;
+    }
+
+    setError("");
+    setNotice("");
+    setActionLoading(action);
+    setArtifactContent({});
+
+    try {
+      const response = await fetch(`/api/jobs/${job.id}/actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          promptOverrides: {
+            cleanupPrompt,
+            briefPrompt,
+            jsonPrompt,
+          },
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "No se pudo iniciar la acción.");
+      }
+      setJob({
+        ...payload,
+        status: actionStatus[action],
+        progress: action === "reprocess_all" ? 0 : payload.progress,
+      });
+    } catch (requestError) {
+      setActionLoading("");
+      setError(requestError instanceof Error ? requestError.message : "No se pudo iniciar la acción.");
+    }
+  }
+
+  async function copyText(label: string, text: string) {
+    if (!text.trim()) {
+      setNotice(`No hay contenido para copiar: ${label}.`);
+      return;
+    }
+    await navigator.clipboard.writeText(text);
+    setNotice(`${label} copiado.`);
   }
 
   return (
@@ -222,6 +336,7 @@ export function ClientBriefGenerator() {
             </label>
 
             {error ? <div className="error-message">{error}</div> : null}
+            {notice ? <div className="notice-message">{notice}</div> : null}
 
             <div className="form-actions">
               <button className="primary-button" type="submit" disabled={submitting || isRunning}>
@@ -240,9 +355,13 @@ export function ClientBriefGenerator() {
               <Clock3 size={16} />
               <span>Historial</span>
             </div>
+            <label className="search-box">
+              <Search size={15} />
+              <input value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Buscar cliente o negocio" />
+            </label>
             <div className="history-list">
-              {recentJobs.length ? (
-                recentJobs.map((item) => (
+              {filteredJobs.length ? (
+                filteredJobs.map((item) => (
                   <button
                     className={job?.id === item.id ? "history-item active" : "history-item"}
                     key={item.id}
@@ -256,7 +375,7 @@ export function ClientBriefGenerator() {
                   </button>
                 ))
               ) : (
-                <p className="empty-history">Los jobs procesados aparecerán aquí.</p>
+                <p className="empty-history">No hay jobs para esa búsqueda.</p>
               )}
             </div>
           </div>
@@ -275,6 +394,8 @@ export function ClientBriefGenerator() {
             <div style={{ width: `${job?.progress ?? 0}%` }} />
           </div>
 
+          <MetricsStrip job={job} />
+
           {job?.error ? <div className="error-message">{job.error}</div> : null}
 
           <div className="pipeline-list">
@@ -286,6 +407,41 @@ export function ClientBriefGenerator() {
                 </div>
               ))}
           </div>
+
+          <div className="action-row">
+            <button disabled={!job || isRunning} onClick={() => void runJobAction("regenerate_json")} type="button">
+              {actionLoading === "regenerate_json" ? <Loader2 className="spin" size={15} /> : <RefreshCcw size={15} />}
+              Reintentar JSON
+            </button>
+            <button disabled={!job || isRunning} onClick={() => void runJobAction("regenerate_brief")} type="button">
+              {actionLoading === "regenerate_brief" ? <Loader2 className="spin" size={15} /> : <RefreshCcw size={15} />}
+              Regenerar brief
+            </button>
+            <button disabled={!job || isRunning} onClick={() => void runJobAction("regenerate_clean_transcript")} type="button">
+              {actionLoading === "regenerate_clean_transcript" ? <Loader2 className="spin" size={15} /> : <RefreshCcw size={15} />}
+              Regenerar transcript
+            </button>
+            <button disabled={!job || isRunning} onClick={() => void runJobAction("reprocess_all")} type="button">
+              {actionLoading === "reprocess_all" ? <Loader2 className="spin" size={15} /> : <RefreshCcw size={15} />}
+              Reprocesar todo
+            </button>
+          </div>
+
+          <details className="prompt-editor">
+            <summary>Prompts de reproceso</summary>
+            <label>
+              Limpieza
+              <textarea value={cleanupPrompt} onChange={(event) => setCleanupPrompt(event.target.value)} />
+            </label>
+            <label>
+              Brief
+              <textarea value={briefPrompt} onChange={(event) => setBriefPrompt(event.target.value)} />
+            </label>
+            <label>
+              JSON
+              <textarea value={jsonPrompt} onChange={(event) => setJsonPrompt(event.target.value)} />
+            </label>
+          </details>
 
           <div className="tabs" role="tablist" aria-label="Resultados">
             {tabs.map((tab) => {
@@ -303,6 +459,21 @@ export function ClientBriefGenerator() {
                 </button>
               );
             })}
+          </div>
+
+          <div className="output-toolbar">
+            <button disabled={activeTab === "export"} onClick={() => void copyText("Output", currentOutput)} type="button">
+              <Copy size={15} />
+              Copiar vista
+            </button>
+            <button disabled={!whatsappMessage} onClick={() => void copyText("WhatsApp", whatsappMessage)} type="button">
+              <Copy size={15} />
+              WhatsApp
+            </button>
+            <button disabled={!emailMessage} onClick={() => void copyText("Email", emailMessage)} type="button">
+              <Copy size={15} />
+              Email
+            </button>
           </div>
 
           <div className="output-surface">
@@ -360,7 +531,7 @@ function getStepClass(currentStatus: JobStatus | undefined, stepStatus: JobStatu
   return "pipeline-step";
 }
 
-function getPlaceholder(job: JobResponse | null, type: ArtifactType) {
+function getPlaceholder(job: JobResponse | null, type: Exclude<OutputTab, "export">) {
   if (!job) {
     return "Los resultados aparecerán aquí cuando termine el proceso.";
   }
@@ -373,21 +544,67 @@ function getPlaceholder(job: JobResponse | null, type: ArtifactType) {
   return `Cargando ${type}...`;
 }
 
+function extractFollowUp(jsonText: string | undefined, key: "whatsapp" | "email") {
+  if (!jsonText) {
+    return "";
+  }
+  try {
+    const parsed = JSON.parse(jsonText) as { follow_up?: Record<string, unknown> };
+    const value = parsed.follow_up?.[key];
+    return typeof value === "string" && value !== "No mencionado" ? value : "";
+  } catch {
+    return "";
+  }
+}
+
+function MetricsStrip({ job }: { job: JobResponse | null }) {
+  const metrics = job?.metrics || {};
+  const items = [
+    { label: "Duración", value: formatDuration(Number(metrics.durationSeconds || 0)) },
+    { label: "Chunks", value: String(metrics.chunkCount || job?.chunks?.length || 0) },
+    { label: "Proceso", value: metrics.totalProcessingSeconds ? `${metrics.totalProcessingSeconds}s` : "-" },
+    { label: "Modelo", value: typeof metrics.analysisModel === "string" ? metrics.analysisModel : "-" },
+  ];
+
+  return (
+    <div className="metrics-strip">
+      {items.map((item) => (
+        <div key={item.label}>
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatDuration(seconds: number) {
+  if (!seconds) {
+    return "-";
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 function ExportPanel({ artifactMap }: { artifactMap: Map<ArtifactType, { url: string }> }) {
-  const exports: Array<{ type: ArtifactType; label: string }> = [
-    { type: "raw_transcript", label: "Transcript bruto" },
-    { type: "clean_transcript", label: "Transcript limpio" },
-    { type: "brief_markdown", label: "Brief Markdown" },
-    { type: "structured_json", label: "JSON estructurado" },
+  const exports: Array<{ type: ArtifactType; label: string; icon: typeof FileText }> = [
+    { type: "raw_transcript", label: "Transcript bruto", icon: FileText },
+    { type: "merged_transcript", label: "Transcript deduplicado", icon: FileText },
+    { type: "clean_transcript", label: "Transcript limpio", icon: FileText },
+    { type: "brief_markdown", label: "Brief Markdown", icon: FileAudio },
+    { type: "structured_json", label: "JSON estructurado", icon: FileJson },
+    { type: "export_zip", label: "Paquete ZIP", icon: FileArchive },
   ];
 
   return (
     <div className="export-list">
       {exports.map((item) => {
         const artifact = artifactMap.get(item.type);
+        const Icon = item.icon;
         return (
           <a aria-disabled={!artifact} href={artifact?.url ?? "#"} key={item.type}>
-            <Download size={16} />
+            <Icon size={16} />
             {item.label}
           </a>
         );

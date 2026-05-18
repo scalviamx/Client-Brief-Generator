@@ -15,9 +15,11 @@ export type JobStatus = (typeof jobStatuses)[number];
 
 export const artifactTypes = [
   "raw_transcript",
+  "merged_transcript",
   "clean_transcript",
   "brief_markdown",
   "structured_json",
+  "export_zip",
 ] as const;
 
 export type ArtifactType = (typeof artifactTypes)[number];

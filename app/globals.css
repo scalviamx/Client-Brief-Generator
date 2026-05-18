@@ -25,7 +25,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -88,7 +89,9 @@ select {
 }
 
 .brief-form input,
-.brief-form select {
+.brief-form select,
+.search-box input,
+.prompt-editor textarea {
   background: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: 7px;
@@ -99,7 +102,9 @@ select {
 }
 
 .brief-form input:focus,
-.brief-form select:focus {
+.brief-form select:focus,
+.search-box input:focus,
+.prompt-editor textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
 }
@@ -143,9 +148,31 @@ select {
   margin-bottom: 10px;
 }
 
+.search-box {
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  display: flex;
+  gap: 8px;
+  height: 38px;
+  margin-bottom: 10px;
+  padding: 0 10px;
+}
+
+.search-box input {
+  border: 0;
+  box-shadow: none !important;
+  height: 34px;
+  min-width: 0;
+  padding: 0;
+  width: 100%;
+}
+
 .history-list {
   display: grid;
   gap: 8px;
+  max-height: 260px;
+  overflow: auto;
 }
 
 .history-item {
@@ -215,6 +242,13 @@ select {
   color: var(--text);
 }
 
+.secondary-button:disabled,
+.action-row button:disabled,
+.output-toolbar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .status-bar {
   align-items: flex-start;
   display: flex;
@@ -250,6 +284,37 @@ select {
   transition: width 160ms ease;
 }
 
+.metrics-strip {
+  border: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 0 18px;
+}
+
+.metrics-strip div {
+  border-right: 1px solid var(--line);
+  display: grid;
+  gap: 3px;
+  min-height: 48px;
+  padding: 9px 10px;
+}
+
+.metrics-strip div:last-child {
+  border-right: 0;
+}
+
+.metrics-strip span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.metrics-strip strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pipeline-list {
   border: 1px solid var(--line);
   display: grid;
@@ -279,6 +344,58 @@ select {
   font-weight: 700;
 }
 
+.action-row,
+.output-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.action-row button,
+.output-toolbar button {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 7px;
+  height: 36px;
+  padding: 0 10px;
+}
+
+.prompt-editor {
+  border: 1px solid var(--line);
+  margin: 0 0 16px;
+}
+
+.prompt-editor summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+.prompt-editor label {
+  border-top: 1px solid var(--line);
+  display: grid;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  padding: 12px;
+}
+
+.prompt-editor textarea {
+  height: 118px;
+  line-height: 1.45;
+  min-height: 118px;
+  padding: 10px;
+  resize: vertical;
+}
+
 .tabs {
   border-bottom: 1px solid var(--line);
   display: flex;
@@ -306,7 +423,6 @@ select {
 
 .output-surface {
   border: 1px solid var(--line);
-  border-top: 0;
   min-height: 420px;
 }
 
@@ -345,7 +461,8 @@ select {
   pointer-events: none;
 }
 
-.error-message {
+.error-message,
+.notice-message {
   background: #fff1f0;
   border: 1px solid #ffccc7;
   border-radius: 7px;
@@ -353,6 +470,12 @@ select {
   font-size: 13px;
   line-height: 1.4;
   padding: 10px 12px;
+}
+
+.notice-message {
+  background: #edf8f5;
+  border-color: #b7dcd4;
+  color: var(--primary-strong);
 }
 
 .spin {
@@ -381,6 +504,14 @@ select {
 
   .pipeline-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metrics-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metrics-strip div:nth-child(2n) {
+    border-right: 0;
   }
 
   .pipeline-step:nth-child(5n) {

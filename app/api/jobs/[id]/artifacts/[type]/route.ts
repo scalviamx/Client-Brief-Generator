@@ -24,7 +24,12 @@ export async function GET(_request: Request, { params }: Params) {
 
   const content = await fs.readFile(artifact.file_path);
   const filename = path.basename(artifact.file_path);
-  const contentType = type === "structured_json" ? "application/json; charset=utf-8" : "text/markdown; charset=utf-8";
+  const contentType =
+    type === "structured_json"
+      ? "application/json; charset=utf-8"
+      : type === "export_zip"
+        ? "application/zip"
+        : "text/markdown; charset=utf-8";
 
   return new NextResponse(content, {
     headers: {

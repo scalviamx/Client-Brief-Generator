@@ -63,5 +63,30 @@ describe("structured JSON parsing", () => {
     });
     expect(result.risks).toEqual(["Presupuesto no mencionado"]);
     expect(result.next_steps).toEqual(["Enviar seguimiento"]);
+    expect(result.follow_up).toEqual({ whatsapp: "No mencionado", email: "No mencionado" });
+  });
+
+  it("normalizes follow up strings", () => {
+    const result = parseJsonFromModel(`{
+      "client": {},
+      "conversation": {},
+      "needs": {},
+      "commercial": {},
+      "recommended_services": [],
+      "services": {},
+      "requirements": {},
+      "risks": [],
+      "proposal": {},
+      "tasks": {},
+      "internal_tasks": [],
+      "next_steps": [],
+      "follow_up": "Hola, te compartimos el resumen.",
+      "questions_for_client": []
+    }`);
+
+    expect(result.follow_up).toEqual({
+      whatsapp: "Hola, te compartimos el resumen.",
+      email: "No mencionado",
+    });
   });
 });

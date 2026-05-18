@@ -49,15 +49,20 @@ async function runAnalysisPrompt(prompt: string) {
   return content;
 }
 
-export async function cleanTranscript(rawTranscript: string) {
-  return runAnalysisPrompt(buildTranscriptCleanupPrompt(rawTranscript));
+export async function cleanTranscript(rawTranscript: string, promptTemplate?: string) {
+  return runAnalysisPrompt(buildTranscriptCleanupPrompt(rawTranscript, promptTemplate));
 }
 
-export async function generateBrief(cleanTranscriptText: string, metadata: Record<string, unknown>) {
-  return runAnalysisPrompt(buildBriefPrompt(cleanTranscriptText, metadata));
+export async function generateBrief(cleanTranscriptText: string, metadata: Record<string, unknown>, promptTemplate?: string) {
+  return runAnalysisPrompt(buildBriefPrompt(cleanTranscriptText, metadata, promptTemplate));
 }
 
-export async function generateStructuredJson(brief: string, cleanTranscriptText: string, metadata: Record<string, unknown>) {
-  const rawJson = await runAnalysisPrompt(buildStructuredJsonPrompt(brief, cleanTranscriptText, metadata));
+export async function generateStructuredJson(
+  brief: string,
+  cleanTranscriptText: string,
+  metadata: Record<string, unknown>,
+  promptTemplate?: string,
+) {
+  const rawJson = await runAnalysisPrompt(buildStructuredJsonPrompt(brief, cleanTranscriptText, metadata, promptTemplate));
   return parseJsonFromModel(rawJson);
 }

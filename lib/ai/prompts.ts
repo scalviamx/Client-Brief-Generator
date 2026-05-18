@@ -1,5 +1,4 @@
-export function buildTranscriptCleanupPrompt(rawTranscript: string) {
-  return `Actúa como editor de transcripciones comerciales.
+export const defaultCleanupPromptTemplate = `Actúa como editor de transcripciones comerciales.
 
 Limpia la siguiente transcripción sin cambiar el significado.
 
@@ -14,11 +13,9 @@ Reglas:
 - Solo limpia y estructura el transcript.
 
 Transcripción:
-${rawTranscript}`;
-}
+{{RAW_TRANSCRIPT}}`;
 
-export function buildBriefPrompt(cleanTranscript: string, metadata: Record<string, unknown>) {
-  return `Actúa como analista comercial senior para Scalvia.
+export const defaultBriefPromptTemplate = `Actúa como analista comercial senior para Scalvia.
 
 Scalvia ofrece landing pages, sitios web, WhatsApp Business, automatización con IA, asistentes de voz, chatbots inteligentes, CRM básico, manejo de redes sociales, embudos de captación, automatización operativa y consultoría digital para negocios pequeños y medianos.
 
@@ -33,7 +30,7 @@ Reglas:
 - Mantén formato Markdown.
 
 Metadata capturada:
-${JSON.stringify(metadata, null, 2)}
+{{METADATA}}
 
 Estructura obligatoria:
 # Brief de Cliente
@@ -55,13 +52,13 @@ Estructura obligatoria:
 ## 16. Preguntas Pendientes para el Cliente
 ## 17. Próximos Pasos
 ## 18. Tareas Internas por Responsable
+## 19. Mensaje Corto para WhatsApp
+## 20. Follow-up Email
 
 Transcripción:
-${cleanTranscript}`;
-}
+{{CLEAN_TRANSCRIPT}}`;
 
-export function buildStructuredJsonPrompt(brief: string, cleanTranscript: string, metadata: Record<string, unknown>) {
-  return `Devuelve únicamente JSON válido. No incluyas markdown.
+export const defaultJsonPromptTemplate = `Devuelve únicamente JSON válido. No incluyas markdown.
 
 A partir del brief, la transcripción y la metadata, genera este objeto mínimo:
 {
@@ -77,10 +74,22 @@ A partir del brief, la transcripción y la metadata, genera este objeto mínimo:
       "evidence": ""
     }
   ],
+  "services": {
+    "recommended": [],
+    "not_yet": []
+  },
   "requirements": {},
   "risks": [],
+  "proposal": {
+    "phases": []
+  },
   "tasks": {},
+  "internal_tasks": [],
   "next_steps": [],
+  "follow_up": {
+    "whatsapp": "",
+    "email": ""
+  },
   "questions_for_client": []
 }
 
@@ -89,15 +98,56 @@ Reglas:
 - Usa "No mencionado" cuando falte un dato.
 - Marca inferencias como "[Inferencia] ...".
 - Cada elemento de recommended_services debe ser un objeto, nunca un string.
-- risks, next_steps y questions_for_client deben ser arrays.
+- risks, next_steps, internal_tasks y questions_for_client deben ser arrays.
+- follow_up.whatsapp debe ser un mensaje breve listo para copiar.
+- follow_up.email debe ser un email breve listo para enviar.
 - Responde en español de México.
 
 Metadata:
-${JSON.stringify(metadata, null, 2)}
+{{METADATA}}
 
 Brief:
-${brief}
+{{BRIEF}}
 
 Transcripción:
-${cleanTranscript}`;
+{{CLEAN_TRANSCRIPT}}`;
+
+export type PromptOverrides = {
+  cleanupPrompt?: string;
+  briefPrompt?: string;
+  jsonPrompt?: string;
+};
+
+export function buildTranscriptCleanupPrompt(rawTranscript: string, promptTemplate?: string) {
+  return applyPromptTemplate(promptTemplate || defaultCleanupPromptTemplate, {
+    RAW_TRANSCRIPT: rawTranscript,
+  });
+}
+
+export function buildBriefPrompt(cleanTranscript: string, metadata: Record<string, unknown>, promptTemplate?: string) {
+  return applyPromptTemplate(promptTemplate || defaultBriefPromptTemplate, {
+    CLEAN_TRANSCRIPT: cleanTranscript,
+    METADATA: JSON.stringify(metadata, null, 2),
+  });
+}
+
+export function buildStructuredJsonPrompt(
+  brief: string,
+  cleanTranscript: string,
+  metadata: Record<string, unknown>,
+  promptTemplate?: string,
+) {
+  return applyPromptTemplate(promptTemplate || defaultJsonPromptTemplate, {
+    BRIEF: brief,
+    CLEAN_TRANSCRIPT: cleanTranscript,
+    METADATA: JSON.stringify(metadata, null, 2),
+  });
+}
+
+function applyPromptTemplate(template: string, values: Record<string, string>) {
+  let output = template;
+  for (const [key, value] of Object.entries(values)) {
+    output = output.replaceAll(`{{${key}}}`, value);
+  }
+  return output;
 }
