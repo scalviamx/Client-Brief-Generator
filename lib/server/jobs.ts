@@ -31,6 +31,8 @@ type JobMetadata = {
   businessName: string;
   callType: string;
   internalParticipants: string;
+  chunkMinutes?: string;
+  chunkOverlapSeconds?: string;
   promptOverrides?: PromptOverrides;
   processing?: Record<string, unknown>;
 };
@@ -104,8 +106,9 @@ export async function processJob(jobId: string) {
     updateJobProcessedPath(jobId, processedPath);
 
     const durationSeconds = await getAudioDurationSeconds(processedPath);
-    const chunkSeconds = config.chunkMinutes * 60;
-    const ranges = calculateChunkRanges(durationSeconds, chunkSeconds, config.chunkOverlapSeconds);
+    const chunkSettings = getChunkSettings(metadata, config);
+    const chunkSeconds = chunkSettings.chunkMinutes * 60;
+    const ranges = calculateChunkRanges(durationSeconds, chunkSeconds, chunkSettings.overlapSeconds);
     if (!ranges.length) {
       throw new Error("El audio no tiene duración procesable.");
     }
@@ -142,6 +145,8 @@ export async function processJob(jobId: string) {
     await writeProcessingMetrics(jobId, startedAt, {
       durationSeconds,
       chunkCount: ranges.length,
+      chunkMinutes: chunkSettings.chunkMinutes,
+      overlapSeconds: chunkSettings.overlapSeconds,
       action: "full_process",
     });
     updateJobStatus(jobId, "complete", 100);
@@ -308,8 +313,8 @@ async function writeProcessingMetrics(jobId: string, startedAt: number, extra: R
       durationSeconds,
       durationMinutes: durationSeconds ? Math.round(durationSeconds / 60) : null,
       chunkCount: listChunks(jobId).length,
-      chunkMinutes: config.chunkMinutes,
-      overlapSeconds: config.chunkOverlapSeconds,
+      chunkMinutes: extra.chunkMinutes || config.chunkMinutes,
+      overlapSeconds: extra.overlapSeconds || config.chunkOverlapSeconds,
       transcriptionModel: config.groqTranscriptionModel,
       analysisModel: config.groqAnalysisModel,
       totalProcessingSeconds: Math.round((Date.now() - startedAt) / 1000),
@@ -356,6 +361,15 @@ async function readMergedTranscript(jobId: string) {
 
 function getDurationSeconds(jobId: string) {
   return listChunks(jobId).reduce((max, chunk) => Math.max(max, chunk.end_seconds), 0);
+}
+
+function getChunkSettings(metadata: JobMetadata, config: ReturnType<typeof getRuntimeConfig>) {
+  const chunkMinutes = Number(metadata.chunkMinutes || config.chunkMinutes);
+  const overlapSeconds = Number(metadata.chunkOverlapSeconds || config.chunkOverlapSeconds);
+  return {
+    chunkMinutes: Number.isFinite(chunkMinutes) ? Math.max(2, Math.min(10, chunkMinutes)) : config.chunkMinutes,
+    overlapSeconds: Number.isFinite(overlapSeconds) ? Math.max(10, Math.min(60, overlapSeconds)) : config.chunkOverlapSeconds,
+  };
 }
 
 function assertJob(jobId: string) {

@@ -100,6 +100,7 @@ export function ClientBriefGenerator() {
   const [businessName, setBusinessName] = useState("");
   const [callType, setCallType] = useState("Primera llamada");
   const [internalParticipants, setInternalParticipants] = useState("Roberto, Reynaldo");
+  const [chunkPreset, setChunkPreset] = useState("4:20");
   const [job, setJob] = useState<JobResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionLoading, setActionLoading] = useState<JobAction | "">("");
@@ -195,6 +196,9 @@ export function ClientBriefGenerator() {
     formData.append("businessName", businessName);
     formData.append("callType", callType);
     formData.append("internalParticipants", internalParticipants);
+    const [chunkMinutes, chunkOverlapSeconds] = chunkPreset.split(":");
+    formData.append("chunkMinutes", chunkMinutes);
+    formData.append("chunkOverlapSeconds", chunkOverlapSeconds);
 
     try {
       const response = await fetch("/api/jobs", {
@@ -236,6 +240,7 @@ export function ClientBriefGenerator() {
       setBusinessName(nextJob.metadata.businessName || "");
       setCallType(nextJob.metadata.callType || "Primera llamada");
       setInternalParticipants(nextJob.metadata.internalParticipants || "Roberto, Reynaldo");
+      setChunkPreset(`${nextJob.metadata.chunkMinutes || "4"}:${nextJob.metadata.chunkOverlapSeconds || "20"}`);
       setCleanupPrompt(nextJob.metadata.promptOverrides?.cleanupPrompt || defaultCleanupPromptTemplate);
       setBriefPrompt(nextJob.metadata.promptOverrides?.briefPrompt || defaultBriefPromptTemplate);
       setJsonPrompt(nextJob.metadata.promptOverrides?.jsonPrompt || defaultJsonPromptTemplate);
@@ -323,6 +328,16 @@ export function ClientBriefGenerator() {
             <label>
               Participantes internos
               <input value={internalParticipants} onChange={(event) => setInternalParticipants(event.target.value)} />
+            </label>
+
+            <label>
+              Precisión de chunks
+              <select value={chunkPreset} onChange={(event) => setChunkPreset(event.target.value)}>
+                <option value="4:20">Alta precisión · 4 min / 20s overlap</option>
+                <option value="3:20">Máximo detalle · 3 min / 20s overlap</option>
+                <option value="5:20">Balanceado · 5 min / 20s overlap</option>
+                <option value="7:15">Rápido · 7 min / 15s overlap</option>
+              </select>
             </label>
 
             <label className="upload-box">
@@ -562,6 +577,10 @@ function MetricsStrip({ job }: { job: JobResponse | null }) {
   const items = [
     { label: "Duración", value: formatDuration(Number(metrics.durationSeconds || 0)) },
     { label: "Chunks", value: String(metrics.chunkCount || job?.chunks?.length || 0) },
+    {
+      label: "Precisión",
+      value: metrics.chunkMinutes ? `${metrics.chunkMinutes}m / ${metrics.overlapSeconds || "-"}s` : "-",
+    },
     { label: "Proceso", value: metrics.totalProcessingSeconds ? `${metrics.totalProcessingSeconds}s` : "-" },
     { label: "Modelo", value: typeof metrics.analysisModel === "string" ? metrics.analysisModel : "-" },
   ];

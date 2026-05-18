@@ -31,8 +31,8 @@ export function getRuntimeConfig() {
     groqApiKey: process.env.GROQ_API_KEY ?? "",
     groqTranscriptionModel: process.env.GROQ_TRANSCRIPTION_MODEL ?? "whisper-large-v3-turbo",
     groqAnalysisModel: process.env.GROQ_ANALYSIS_MODEL ?? "llama-3.3-70b-versatile",
-    chunkMinutes: Number(process.env.CHUNK_MINUTES ?? 7),
-    chunkOverlapSeconds: Number(process.env.CHUNK_OVERLAP_SECONDS ?? 15),
+    chunkMinutes: Number(process.env.CHUNK_MINUTES ?? 4),
+    chunkOverlapSeconds: Number(process.env.CHUNK_OVERLAP_SECONDS ?? 20),
     maxUploadMb: Number(process.env.MAX_UPLOAD_MB ?? 500),
   };
 }

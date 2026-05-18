@@ -1,7 +1,8 @@
 :root {
-  --bg: #f7f8f5;
+  --bg: #f4f6f2;
   --surface: #ffffff;
   --surface-muted: #f0f2ee;
+  --surface-raised: #fbfcfa;
   --line: #d9ded5;
   --line-strong: #aeb8aa;
   --text: #1d241d;
@@ -32,24 +33,27 @@ textarea {
 
 .app-shell {
   min-height: 100vh;
-  padding: 24px;
+  padding: 18px;
 }
 
 .workspace {
   border: 1px solid var(--line);
+  border-radius: 8px;
   display: grid;
-  grid-template-columns: 360px 1fr;
-  min-height: calc(100vh - 48px);
+  grid-template-columns: 390px 1fr;
+  min-height: calc(100vh - 36px);
   background: var(--surface);
+  overflow: hidden;
 }
 
 .input-pane {
   border-right: 1px solid var(--line);
-  padding: 24px;
+  background: var(--surface-raised);
+  padding: 22px;
 }
 
 .result-pane {
-  padding: 24px;
+  padding: 22px;
   min-width: 0;
 }
 
@@ -77,7 +81,7 @@ textarea {
 
 .brief-form {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .brief-form label {
@@ -99,6 +103,7 @@ textarea {
   height: 40px;
   outline: none;
   padding: 0 11px;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
 
 .brief-form input:focus,
@@ -121,6 +126,12 @@ textarea {
   gap: 10px !important;
   min-height: 48px;
   padding: 0 12px;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.upload-box:hover {
+  background: #f7faf6;
+  border-color: var(--primary);
 }
 
 .upload-box input {
@@ -173,6 +184,7 @@ textarea {
   gap: 8px;
   max-height: 260px;
   overflow: auto;
+  padding-right: 2px;
 }
 
 .history-item {
@@ -186,10 +198,12 @@ textarea {
   min-height: 54px;
   padding: 9px 10px;
   text-align: left;
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
 
 .history-item:hover,
 .history-item.active {
+  background: #f6fbf9;
   border-color: var(--primary);
 }
 
@@ -219,6 +233,7 @@ textarea {
   height: 40px;
   justify-content: center;
   padding: 0 13px;
+  transition: background-color 150ms ease, border-color 150ms ease, opacity 150ms ease;
 }
 
 .primary-button {
@@ -254,6 +269,7 @@ textarea {
   display: flex;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 14px;
 }
 
 .status-pill {
@@ -274,7 +290,7 @@ textarea {
 .progress-track {
   background: var(--surface-muted);
   height: 8px;
-  margin: 18px 0;
+  margin: 0 0 14px;
   overflow: hidden;
 }
 
@@ -286,9 +302,11 @@ textarea {
 
 .metrics-strip {
   border: 1px solid var(--line);
+  border-radius: 7px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin: 0 0 18px;
+  overflow: hidden;
 }
 
 .metrics-strip div {
@@ -317,9 +335,11 @@ textarea {
 
 .pipeline-list {
   border: 1px solid var(--line);
+  border-radius: 7px;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   margin: 0 0 18px;
+  overflow: hidden;
 }
 
 .pipeline-step {
@@ -365,11 +385,20 @@ textarea {
   gap: 7px;
   height: 36px;
   padding: 0 10px;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.action-row button:hover,
+.output-toolbar button:hover {
+  background: #f6fbf9;
+  border-color: var(--primary);
 }
 
 .prompt-editor {
   border: 1px solid var(--line);
+  border-radius: 7px;
   margin: 0 0 16px;
+  overflow: hidden;
 }
 
 .prompt-editor summary {
@@ -423,7 +452,9 @@ textarea {
 
 .output-surface {
   border: 1px solid var(--line);
+  border-radius: 7px;
   min-height: 420px;
+  overflow: hidden;
 }
 
 .output-surface pre {
@@ -454,6 +485,12 @@ textarea {
   min-height: 42px;
   padding: 0 12px;
   text-decoration: none;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.export-list a:hover {
+  background: #f6fbf9;
+  border-color: var(--primary);
 }
 
 .export-list a[aria-disabled="true"] {

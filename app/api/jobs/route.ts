@@ -21,6 +21,8 @@ export async function POST(request: Request) {
       businessName: String(formData.get("businessName") ?? ""),
       callType: String(formData.get("callType") ?? ""),
       internalParticipants: String(formData.get("internalParticipants") ?? ""),
+      chunkMinutes: String(formData.get("chunkMinutes") ?? "4"),
+      chunkOverlapSeconds: String(formData.get("chunkOverlapSeconds") ?? "20"),
     });
 
     startJobProcessing(jobId);

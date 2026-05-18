@@ -12,6 +12,8 @@ npm run dev
 
 Add a Groq API key to `.env` before processing audio.
 
+For long calls, the UI defaults to high-accuracy chunking: 4-minute chunks with 20 seconds of overlap. This creates more sections than the original 7-minute strategy and preserves more local context around transitions.
+
 ## Requirements
 
 - Node.js 20+
