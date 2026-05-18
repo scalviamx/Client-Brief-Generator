@@ -1,17 +1,58 @@
 import { z } from "zod";
 
+const flexibleRecord = z
+  .union([z.record(z.unknown()), z.string(), z.array(z.unknown()), z.null()])
+  .transform((value) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value;
+    }
+    if (Array.isArray(value)) {
+      return { items: value };
+    }
+    if (typeof value === "string") {
+      return { summary: value };
+    }
+    return {};
+  });
+
+const flexibleArray = z
+  .union([z.array(z.unknown()), z.string(), z.null()])
+  .transform((value) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim()) {
+      return [value];
+    }
+    return [];
+  });
+
+const recommendedServiceSchema = z
+  .union([z.record(z.unknown()), z.string()])
+  .transform((value) => {
+    if (typeof value === "string") {
+      return {
+        service: value,
+        reason: "No mencionado",
+        priority: "No mencionado",
+        evidence: "No mencionado",
+      };
+    }
+    return value;
+  });
+
 export const structuredBriefSchema = z
   .object({
-    client: z.record(z.unknown()).default({}),
-    conversation: z.record(z.unknown()).default({}),
-    needs: z.record(z.unknown()).default({}),
-    commercial: z.record(z.unknown()).default({}),
-    recommended_services: z.array(z.record(z.unknown())).default([]),
-    requirements: z.record(z.unknown()).default({}),
-    risks: z.array(z.unknown()).default([]),
-    tasks: z.record(z.unknown()).default({}),
-    next_steps: z.array(z.unknown()).default([]),
-    questions_for_client: z.array(z.unknown()).default([]),
+    client: flexibleRecord.default({}),
+    conversation: flexibleRecord.default({}),
+    needs: flexibleRecord.default({}),
+    commercial: flexibleRecord.default({}),
+    recommended_services: z.array(recommendedServiceSchema).default([]),
+    requirements: flexibleRecord.default({}),
+    risks: flexibleArray.default([]),
+    tasks: flexibleRecord.default({}),
+    next_steps: flexibleArray.default([]),
+    questions_for_client: flexibleArray.default([]),
   })
   .passthrough();
 

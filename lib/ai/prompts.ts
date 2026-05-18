@@ -69,7 +69,14 @@ A partir del brief, la transcripción y la metadata, genera este objeto mínimo:
   "conversation": {},
   "needs": {},
   "commercial": {},
-  "recommended_services": [],
+  "recommended_services": [
+    {
+      "service": "",
+      "reason": "",
+      "priority": "",
+      "evidence": ""
+    }
+  ],
   "requirements": {},
   "risks": [],
   "tasks": {},
@@ -81,6 +88,8 @@ Reglas:
 - No inventes información.
 - Usa "No mencionado" cuando falte un dato.
 - Marca inferencias como "[Inferencia] ...".
+- Cada elemento de recommended_services debe ser un objeto, nunca un string.
+- risks, next_steps y questions_for_client deben ser arrays.
 - Responde en español de México.
 
 Metadata:

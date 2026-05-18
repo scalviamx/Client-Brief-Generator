@@ -39,4 +39,29 @@ describe("structured JSON parsing", () => {
 
     expect(result.next_steps).toEqual(["Enviar resumen"]);
   });
+
+  it("normalizes recommended services returned as strings", () => {
+    const result = parseJsonFromModel(`{
+      "client": "No mencionado",
+      "conversation": {},
+      "needs": {},
+      "commercial": {},
+      "recommended_services": ["Landing page", "WhatsApp Business"],
+      "requirements": {},
+      "risks": "Presupuesto no mencionado",
+      "tasks": {},
+      "next_steps": "Enviar seguimiento",
+      "questions_for_client": []
+    }`);
+
+    expect(result.client).toEqual({ summary: "No mencionado" });
+    expect(result.recommended_services[0]).toEqual({
+      service: "Landing page",
+      reason: "No mencionado",
+      priority: "No mencionado",
+      evidence: "No mencionado",
+    });
+    expect(result.risks).toEqual(["Presupuesto no mencionado"]);
+    expect(result.next_steps).toEqual(["Enviar seguimiento"]);
+  });
 });
